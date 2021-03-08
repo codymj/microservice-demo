@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/codymj/microservice-demo/product-api/handler"
+	"github.com/codymj/microservice-demo/product-api/handler/product"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -16,23 +16,13 @@ func main() {
 	logger := log.New(os.Stdout, "products-api ", log.LstdFlags)
 
 	// Create handlers
-	productHandler := handler.GetProductHandler(logger)
+	productHandler := product.GetHandler(logger)
 
 	// Create new serve mux and register handlers
 	serveMux := mux.NewRouter()
+	registerProductRouters(serveMux, productHandler)
 
-	getRouter := serveMux.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/product", productHandler.GetAllProducts)
-
-	putRouter := serveMux.Methods(http.MethodPut).Subrouter()
-	putRouter.HandleFunc("/product/{id:[0-9]+}", productHandler.UpdateProduct)
-	putRouter.Use(productHandler.MWValidateProduct)
-
-	postRouter := serveMux.Methods(http.MethodPost).Subrouter()
-	postRouter.HandleFunc("/product", productHandler.AddProduct)
-	postRouter.Use(productHandler.MWValidateProduct)
-
-	// Create a new server
+	// Create and start web server
 	s := http.Server{
 		Addr:         ":9090",
 		Handler:      serveMux,
@@ -41,14 +31,12 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-
-	// Start the server
 	go func() {
 		logger.Println("Starting server on port 9090")
 
 		err := s.ListenAndServe()
 		if err != nil {
-			logger.Printf("Error starting server: %s\n", err)
+			logger.Printf("Server closed")
 			os.Exit(1)
 		}
 	}()
@@ -58,14 +46,33 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	signal.Notify(c, os.Kill)
 
-	// Block until a signal is received
 	sig := <-c
 	log.Println("Got signal:", sig)
 
-	// Gracefully shutdown the server
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	err := s.Shutdown(ctx)
 	if err != nil {
 		logger.Fatal("Server did not shutdown gracefully")
 	}
+}
+
+// Sets up sub routers for product
+func registerProductRouters(serveMux *mux.Router, productHandler *product.Handler) {
+	// GET
+	getRouter := serveMux.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc("/product", productHandler.GetAllProducts)
+
+	// PUT
+	putRouter := serveMux.Methods(http.MethodPut).Subrouter()
+	putRouter.HandleFunc("/product/{id:[0-9]+}", productHandler.UpdateProduct)
+	putRouter.Use(productHandler.MWValidateProduct)
+
+	// POST
+	postRouter := serveMux.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/product", productHandler.AddProduct)
+	postRouter.Use(productHandler.MWValidateProduct)
+
+	// DELETE
+	deleteRouter := serveMux.Methods(http.MethodDelete).Subrouter()
+	deleteRouter.HandleFunc("/product/{id:[0-9]+}", productHandler.DeleteProduct)
 }

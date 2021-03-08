@@ -63,6 +63,17 @@ func UpdateProduct(id int, p *Product) error {
 	return nil
 }
 
+// DeleteProduct
+func DeleteProduct(id int) error {
+	_, i, err := findProductById(id)
+	if err != nil {
+		return err
+	}
+
+	products = append(products[:i], products[i+1])
+	return nil
+}
+
 // findProduct()
 func findProductById(id int) (*Product, int, error) {
 	for i, p := range products {
