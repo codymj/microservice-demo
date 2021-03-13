@@ -49,7 +49,8 @@ func main() {
 	sig := <-c
 	log.Println("Got signal:", sig)
 
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	err := s.Shutdown(ctx)
 	if err != nil {
 		logger.Fatal("Server did not shutdown gracefully")
